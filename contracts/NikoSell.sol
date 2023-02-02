@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-import "hardhat/console.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -32,16 +31,8 @@ contract NikoSell is AccessControl, ReentrancyGuard {
         nkoPrice = amount;
     }
 
-    function fundNiko(uint256 amount) external {
+    function fundNiko(uint256 amount) external onlyRole(ADMIN_ROLE) {
         NKO.safeTransferFrom(msg.sender, address(this), amount);
-    }
-
-    function retreiveNiko(uint256 amount) external onlyRole(ADMIN_ROLE) {
-        require(
-            NKO.balanceOf(address(this)) >= amount,
-            "Insuffient NKO balance for amount requested"
-        );
-        NKO.safeTransfer(msg.sender, amount);
     }
 
     function withdrawBalance(uint256 amount) external onlyRole(ADMIN_ROLE) {
@@ -75,8 +66,6 @@ contract NikoSell is AccessControl, ReentrancyGuard {
         (bool sent, ) = address(this).call{value: cost}("");
         require(sent, "Failed to send ETH");
         NKO.safeTransfer(msg.sender, buyAmount);
-        console.log("Buying: ", buyAmount, " Niko Tokens");
-        console.log("Paying: ", cost, " MATIC");
         if (msg.value - cost > 0) {
             (bool sentBack, ) = msg.sender.call{value: msg.value - cost}("");
             require(sentBack, "Failed to send back remaining MATIC");
@@ -87,9 +76,6 @@ contract NikoSell is AccessControl, ReentrancyGuard {
     function buyNikoWithBNB(uint256 buyAmount) external payable nonReentrant {
         uint256 bnbusd = getBNBLatestPrice();
         uint256 cost = (buyAmount * ((nkoPrice * 1e18) / bnbusd)) / 1e18;
-        console.log("Buying: ", buyAmount, " Niko Tokens");
-        console.log("Paying ", cost, " BNB");
-
         IERC20(0x3BA4c387f786bFEE076A58914F5Bd38d668B42c3).safeTransferFrom(
             msg.sender,
             address(this),
