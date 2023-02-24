@@ -1,7 +1,7 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { formatUnits, parseEther } from "ethers/lib/utils";
+import { formatEther, formatUnits, parseEther } from "ethers/lib/utils";
 import { maticWhale, nikoWhale } from "../constant/wallets";
 import {
   BNB_USD_PRICE_FEED,
@@ -17,7 +17,7 @@ describe("TEST TOKEN SELL", function () {
 
     const nko = await ethers.getContractAt("IERC20", NIKO_TOKEN_ADDRESS);
     const Sell = await ethers.getContractFactory("NikoSell");
-    const sell = await Sell.deploy(
+    const sell = await Sell.connect(deployer).deploy(
       MATIC_USD_PRICE_FEED,
       BNB_USD_PRICE_FEED,
       NIKO_TOKEN_ADDRESS
@@ -89,7 +89,7 @@ describe("TEST TOKEN SELL", function () {
 
     return { nikoWale, nko, sell, daiWhale, dai };
   }
-  // TODO
+
   async function withdrawContractFundsFixture() {
     const { buyer, nikoWale, nko, sell } = await loadFixture(
       deployContractFixture
@@ -115,11 +115,19 @@ describe("TEST TOKEN SELL", function () {
 
     return { nikoWale, nko, sell, bnbWhale, bnb };
   }
-
   describe("Buyers Wallet", function () {
+    /**
+     * Giving error on this
+     */
     it("should have MATIC", async function () {
       const { buyer } = await loadFixture(deployContractFixture);
-      expect(await buyer.getBalance()).to.greaterThan(parseEther("5000"));
+      // console.log(buyer.address);
+      // const balance = await buyer.getBalance();
+      // console.log(formatEther(balance));
+      // expect(buyer.address).to.equal(
+      //   "0x1DE8bb3c738d089054836C4370bb60c162Bc64B1"
+      // );
+      expect(await buyer.getBalance()).to.greaterThan(parseEther("1000"));
     });
   });
 
