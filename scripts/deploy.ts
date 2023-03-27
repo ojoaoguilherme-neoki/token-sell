@@ -1,21 +1,19 @@
 import { ethers } from "hardhat";
-import {
-  BNB_USD_PRICE_FEED,
-  MATIC_USD_PRICE_FEED,
-  NIKO_TOKEN_ADDRESS,
-} from "../constant/contracts";
 
 async function main() {
-  const NikoSell = await ethers.getContractFactory("NikoSell");
-  const sell = await NikoSell.deploy(
-    MATIC_USD_PRICE_FEED,
-    BNB_USD_PRICE_FEED,
-    NIKO_TOKEN_ADDRESS
-  );
-  console.log(`Niko Selling Contract deploying...`);
-  await sell.deployed();
+  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
+  const unlockTime = currentTimestampInSeconds + 60;
 
-  console.log(`deployed to ${sell.address}`);
+  const lockedAmount = ethers.utils.parseEther("0.001");
+
+  const Lock = await ethers.getContractFactory("Lock");
+  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+
+  await lock.deployed();
+
+  console.log(
+    `Lock with ${ethers.utils.formatEther(lockedAmount)}ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
+  );
 }
 
 // We recommend this pattern to be able to use async/await everywhere

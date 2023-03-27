@@ -23,8 +23,8 @@ contract NikoSell is AccessControl, ReentrancyGuard {
         bnbPriceFeed = AggregatorV3Interface(_bnbPriceFeed);
 
         NKO = IERC20(_nkoAddress);
-        _grantRole(ADMIN_ROLE, msg.sender);
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        // _grantRole(ADMIN_ROLE, msg.sender);
+        // _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     function updateNikoPrice(uint256 amount) external onlyRole(ADMIN_ROLE) {
@@ -60,8 +60,12 @@ contract NikoSell is AccessControl, ReentrancyGuard {
     function buyNikoWithMatic(
         uint256 buyAmount
     ) external payable nonReentrant returns (bool) {
+        require(buyAmount > 0, "Cannot buy amount of 0 NKOs");
+
         uint256 matic = getMaticLatestPrice();
+
         uint256 cost = (buyAmount * ((nkoPrice * 1e18) / matic)) / 1e18;
+        require(cost > 0, "Cost cannot be zero");
         require(msg.value >= cost, "Sent insufficient MATIC");
         (bool sent, ) = address(this).call{value: cost}("");
         require(sent, "Failed to send ETH");
