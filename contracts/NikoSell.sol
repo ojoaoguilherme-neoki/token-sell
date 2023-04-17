@@ -12,37 +12,54 @@ contract NikoSell is AccessControl, ReentrancyGuard {
     AggregatorV3Interface internal immutable bnbPriceFeed;
 
     IERC20 public NKO;
-    uint256 public nkoPrice = 1e18;
+    uint256 public nkoPrice = 1e17;
 
     constructor(
         address _maticPriceFeed,
         address _bnbPriceFeed,
         address _nkoAddress
     ) {
+        require(
+            _maticPriceFeed != address(0),
+            "Matic Price Feed cannot be zero address"
+        );
+        require(
+            _bnbPriceFeed != address(0),
+            "BNB Price Feed cannot be zero address"
+        );
+        require(
+            _nkoAddress != address(0),
+            "NKO Token address cannot be zero address"
+        );
         maticPriceFeed = AggregatorV3Interface(_maticPriceFeed);
         bnbPriceFeed = AggregatorV3Interface(_bnbPriceFeed);
-
         NKO = IERC20(_nkoAddress);
-        // _grantRole(ADMIN_ROLE, msg.sender);
         // _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, msg.sender);
+    }
+
+    modifier onlySell(uint256 amount) {
+        require(amount > 0, "Cannot buy amount of 0 NKOs");
+        require(
+            NKO.balanceOf(address(this)) >= amount,
+            "Private Sell: Not enough NKO to sell"
+        );
+        _;
     }
 
     function updateNikoPrice(uint256 amount) external onlyRole(ADMIN_ROLE) {
+        require(amount > 0, "Private Sell: Cannot set NKO price equal to zero");
         nkoPrice = amount;
-    }
-
-    function fundNiko(uint256 amount) external onlyRole(ADMIN_ROLE) {
-        NKO.safeTransferFrom(msg.sender, address(this), amount);
     }
 
     function withdrawBalance(uint256 amount) external onlyRole(ADMIN_ROLE) {
         require(
             address(this).balance >= amount,
-            "Insuffient balance for amount requested"
+            "Private Sell: Insuffient MATIC balance for amount requested"
         );
 
         (bool sent, ) = msg.sender.call{value: amount}("");
-        require(sent, "Failed to send ETH");
+        require(sent, "Private Sell: Failed to send MATIC");
     }
 
     function withdrawTokens(
@@ -52,34 +69,53 @@ contract NikoSell is AccessControl, ReentrancyGuard {
         IERC20 token = IERC20(tokenAddress);
         require(
             token.balanceOf(address(this)) >= amount,
-            "Insuffient balance for amount requested"
+            "Private Sell: Insuffient contract balance of token requested"
         );
         token.safeTransfer(msg.sender, amount);
     }
 
-    function buyNikoWithMatic(
-        uint256 buyAmount
-    ) external payable nonReentrant returns (bool) {
-        require(buyAmount > 0, "Cannot buy amount of 0 NKOs");
-
-        uint256 matic = getMaticLatestPrice();
-
-        uint256 cost = (buyAmount * ((nkoPrice * 1e18) / matic)) / 1e18;
-        require(cost > 0, "Cost cannot be zero");
-        require(msg.value >= cost, "Sent insufficient MATIC");
-        (bool sent, ) = address(this).call{value: cost}("");
-        require(sent, "Failed to send ETH");
-        NKO.safeTransfer(msg.sender, buyAmount);
-        if (msg.value - cost > 0) {
-            (bool sentBack, ) = msg.sender.call{value: msg.value - cost}("");
-            require(sentBack, "Failed to send back remaining MATIC");
-        }
-        return sent;
+    function getValueNeededToBuyWithMatic(
+        uint256 interestedAmount
+    ) external view returns (uint256) {
+        uint256 maticPrice = getMaticLatestPrice();
+        uint256 cost = (interestedAmount * nkoPrice) / maticPrice;
+        return cost;
     }
 
-    function buyNikoWithBNB(uint256 buyAmount) external payable nonReentrant {
-        uint256 bnbusd = getBNBLatestPrice();
-        uint256 cost = (buyAmount * ((nkoPrice * 1e18) / bnbusd)) / 1e18;
+    function buyNikoWithMatic(
+        uint256 buyAmount
+    ) external payable onlySell(buyAmount) nonReentrant returns (bool) {
+        uint256 sentMatic = msg.value;
+        uint256 maticPrice = getMaticLatestPrice();
+        uint256 cost = (buyAmount * nkoPrice) / maticPrice;
+        require(cost > 0, "Private Sell: Cost cannot be zero");
+
+        require(
+            sentMatic >= cost,
+            "Private Sell: Sent insufficient MATIC to buy amount of NKO token"
+        );
+        (bool bought, ) = address(this).call{value: cost}("");
+        require(bought, "Private Sell: Failed to send MATIC");
+
+        NKO.safeTransfer(msg.sender, buyAmount);
+
+        uint256 sendBack = sentMatic - cost;
+        if (sendBack > 0) {
+            (bool sentBack, ) = msg.sender.call{value: sendBack}("");
+            require(
+                sentBack,
+                "Private Sell: Failed to send back excessive sent MATIC to buy token"
+            );
+        }
+        return bought;
+    }
+
+    function buyNikoWithBNB(
+        uint256 buyAmount
+    ) external payable onlySell(buyAmount) nonReentrant {
+        uint256 bnbPrice = getBNBLatestPrice();
+        uint256 cost = (buyAmount * nkoPrice) / bnbPrice;
+        require(cost > 0, "Cost cannot be zero");
         IERC20(0x3BA4c387f786bFEE076A58914F5Bd38d668B42c3).safeTransferFrom(
             msg.sender,
             address(this),
@@ -88,8 +124,11 @@ contract NikoSell is AccessControl, ReentrancyGuard {
         NKO.safeTransfer(msg.sender, buyAmount);
     }
 
-    function buyNikoWithDAI(uint256 buyAmount) external payable nonReentrant {
+    function buyNikoWithDAI(
+        uint256 buyAmount
+    ) external payable onlySell(buyAmount) nonReentrant {
         uint256 cost = (buyAmount * nkoPrice) / 1e18;
+        require(cost > 0, "Private Sell: Cost cannot be zero");
 
         IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063).safeTransferFrom(
             msg.sender,
@@ -99,9 +138,11 @@ contract NikoSell is AccessControl, ReentrancyGuard {
         NKO.safeTransfer(msg.sender, buyAmount);
     }
 
-    function buyNikoWithBUSD(uint256 buyAmount) external payable nonReentrant {
+    function buyNikoWithBUSD(
+        uint256 buyAmount
+    ) external payable onlySell(buyAmount) nonReentrant {
         uint256 cost = (buyAmount * nkoPrice) / 1e18;
-
+        require(cost > 0, "Private Sell: Cost cannot be zero");
         IERC20(0xdAb529f40E671A1D4bF91361c21bf9f0C9712ab7).safeTransferFrom(
             msg.sender,
             address(this),

@@ -1,19 +1,20 @@
 import { ethers } from "hardhat";
+import { erc20 } from "../typechain-types/@openzeppelin/contracts/token";
+const MATIC_FEED_ADDRESS = "0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada";
+const DAI_FEED_ADDRESS = "0x0FCAa9c899EC5A91eBc3D5Dd869De833b06fB046";
+export const NIKO_TOKEN_ADDRESS = "0xD416889755FCceF5bEFFb5BDE6bcf57C11813F8E";
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
-
-  const lockedAmount = ethers.utils.parseEther("0.001");
-
-  const Lock = await ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
-
-  await lock.deployed();
-
-  console.log(
-    `Lock with ${ethers.utils.formatEther(lockedAmount)}ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
+  // const initialFundTest = ethers.utils.parseEther("10");
+  const TokenSell = await ethers.getContractFactory("NikoSell");
+  const tokenSell = await TokenSell.deploy(
+    MATIC_FEED_ADDRESS,
+    NIKO_TOKEN_ADDRESS
   );
+
+  await tokenSell.deployed();
+  console.log(`Token sell contract deployed at ${tokenSell.address}`);
+  // console.log(`Funding with 10 NKOs`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
