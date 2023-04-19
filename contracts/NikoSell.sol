@@ -34,7 +34,7 @@ contract NikoSell is AccessControl, ReentrancyGuard {
         maticPriceFeed = AggregatorV3Interface(_maticPriceFeed);
         bnbPriceFeed = AggregatorV3Interface(_bnbPriceFeed);
         NKO = IERC20(_nkoAddress);
-        // _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
     }
 
@@ -47,11 +47,13 @@ contract NikoSell is AccessControl, ReentrancyGuard {
         _;
     }
 
+    // Update NKO Price
     function updateNikoPrice(uint256 amount) external onlyRole(ADMIN_ROLE) {
         require(amount > 0, "Private Sell: Cannot set NKO price equal to zero");
         nkoPrice = amount;
     }
 
+    // Withdraw MATIC balance of contract
     function withdrawBalance(uint256 amount) external onlyRole(ADMIN_ROLE) {
         require(
             address(this).balance >= amount,
@@ -62,6 +64,7 @@ contract NikoSell is AccessControl, ReentrancyGuard {
         require(sent, "Private Sell: Failed to send MATIC");
     }
 
+    // Withdraw Token amount of tokenAddress from the contract
     function withdrawTokens(
         uint256 amount,
         address tokenAddress
